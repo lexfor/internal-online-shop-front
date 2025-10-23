@@ -22,7 +22,7 @@ export const MESSAGES = {
     UNEXPECTED_ERROR: 'Unexpected error:',
 };
 
-// Math constants
+// Math constants.ts
 export const CONTEXT_SIZE_RATIO = 0.6;
 export const VECTOR_EPSILON = 1e-8;
 
