@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { AuthActivityType, AuthFormProps } from '../../types/auth';
 import { AuthFormDto } from './AuthFormDto';
+import { useFormValidation } from '../../utils/useFormValidation';
 
 export default function AuthForm({
   type,
@@ -17,16 +18,22 @@ export default function AuthForm({
   isLoading,
   error,
 }: AuthFormProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string | string[]>
-  >({});
-
   const emailInputRef = useRef<HTMLInputElement>(null);
+
+  // Use the new form validation hook
+  const {
+    formState,
+    setFieldValue,
+    setFieldTouched,
+    validateForm,
+    getFieldError,
+    getFieldHelperText,
+  } = useFormValidation({ type });
+
+  // Handle field blur to mark as touched
+  const handleFieldBlur = (fieldName: keyof typeof formState) => {
+    setFieldTouched(fieldName, true);
+  };
 
   useEffect(() => {
     emailInputRef.current?.focus();
@@ -35,17 +42,18 @@ export default function AuthForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const formDto = AuthFormDto.create({
-      email,
-      password,
-      confirmPassword,
-      username,
-      fullName,
-      type,
-      setValidationErrors,
-    });
+    // Validate the entire form
+    if (!validateForm()) return;
 
-    if (!formDto.validate()) return;
+    // Create the form data for submission
+    const formDto = AuthFormDto.create({
+      email: formState.email.value,
+      password: formState.password.value,
+      confirmPassword: formState.confirmPassword.value,
+      username: formState.username.value,
+      fullName: formState.fullName.value,
+      type,
+    });
 
     onSubmit(formDto.toSubmitData());
   };
@@ -78,32 +86,56 @@ export default function AuthForm({
       <Stack spacing={2}>
         <TextField
           inputRef={emailInputRef}
-          label="Email"
+          label="Email Address"
           variant="outlined"
           type="email"
           fullWidth
           required
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          error={!!validationErrors.email}
-          helperText={validationErrors.email}
+          value={formState.email.value}
+          onChange={e => setFieldValue('email', e.target.value)}
+          onBlur={() => handleFieldBlur('email')}
+          error={getFieldError('email')}
+          helperText={getFieldHelperText('email')}
+          placeholder="Enter your email address"
+          autoComplete="email"
+          inputProps={{
+            'aria-describedby': 'email-helper-text',
+            'aria-invalid': getFieldError('email'),
+          }}
+          FormHelperTextProps={{
+            id: 'email-helper-text',
+            role: 'alert',
+          }}
         />
 
-        <TextField
-          label="Password"
-          variant="outlined"
-          type="password"
-          fullWidth
-          required
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          error={!!validationErrors.password}
-          helperText={
-            Array.isArray(validationErrors.password)
-              ? validationErrors.password.join('. ')
-              : validationErrors.password
-          }
-        />
+        <Box>
+          <TextField
+            label="Password"
+            variant="outlined"
+            type="password"
+            fullWidth
+            required
+            value={formState.password.value}
+            onChange={e => setFieldValue('password', e.target.value)}
+            onBlur={() => handleFieldBlur('password')}
+            error={getFieldError('password')}
+            helperText={getFieldHelperText('password')}
+            placeholder="Enter your password"
+            autoComplete={
+              type === AuthActivityType.SIGN_IN
+                ? 'current-password'
+                : 'new-password'
+            }
+            inputProps={{
+              'aria-describedby': 'password-helper-text password-strength',
+              'aria-invalid': getFieldError('password'),
+            }}
+            FormHelperTextProps={{
+              id: 'password-helper-text',
+              role: 'alert',
+            }}
+          />
+        </Box>
 
         {type === AuthActivityType.SIGN_UP && (
           <>
@@ -113,10 +145,21 @@ export default function AuthForm({
               type="password"
               fullWidth
               required
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              error={!!validationErrors.confirmPassword}
-              helperText={validationErrors.confirmPassword}
+              value={formState.confirmPassword.value}
+              onChange={e => setFieldValue('confirmPassword', e.target.value)}
+              onBlur={() => handleFieldBlur('confirmPassword')}
+              error={getFieldError('confirmPassword')}
+              helperText={getFieldHelperText('confirmPassword')}
+              placeholder="Confirm your password"
+              autoComplete="new-password"
+              inputProps={{
+                'aria-describedby': 'confirm-password-helper-text',
+                'aria-invalid': getFieldError('confirmPassword'),
+              }}
+              FormHelperTextProps={{
+                id: 'confirm-password-helper-text',
+                role: 'alert',
+              }}
             />
 
             <TextField
@@ -125,10 +168,25 @@ export default function AuthForm({
               type="text"
               fullWidth
               required
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              error={!!validationErrors.username}
-              helperText={validationErrors.username}
+              value={formState.username.value}
+              onChange={e => setFieldValue('username', e.target.value)}
+              onBlur={() => handleFieldBlur('username')}
+              error={getFieldError('username')}
+              helperText={
+                getFieldHelperText('username') ||
+                'Choose a unique username (3-30 characters, letters, numbers, _, -)'
+              }
+              placeholder="Choose a username"
+              autoComplete="username"
+              inputProps={{
+                'aria-describedby': 'username-helper-text',
+                'aria-invalid': getFieldError('username'),
+                maxLength: 30,
+              }}
+              FormHelperTextProps={{
+                id: 'username-helper-text',
+                role: getFieldError('username') ? 'alert' : 'status',
+              }}
             />
 
             <TextField
@@ -137,10 +195,25 @@ export default function AuthForm({
               type="text"
               fullWidth
               required
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              error={!!validationErrors.fullName}
-              helperText={validationErrors.fullName}
+              value={formState.fullName.value}
+              onChange={e => setFieldValue('fullName', e.target.value)}
+              onBlur={() => handleFieldBlur('fullName')}
+              error={getFieldError('fullName')}
+              helperText={
+                getFieldHelperText('fullName') ||
+                'Enter your first and last name'
+              }
+              placeholder="Enter your full name"
+              autoComplete="name"
+              inputProps={{
+                'aria-describedby': 'full-name-helper-text',
+                'aria-invalid': getFieldError('fullName'),
+                maxLength: 100,
+              }}
+              FormHelperTextProps={{
+                id: 'full-name-helper-text',
+                role: getFieldError('fullName') ? 'alert' : 'status',
+              }}
             />
           </>
         )}
@@ -151,14 +224,27 @@ export default function AuthForm({
           type="submit"
           fullWidth
           disabled={isLoading}
-          sx={{ height: 42 }}
+          sx={{
+            height: 48,
+            mt: 1,
+            fontSize: '1rem',
+            fontWeight: 600,
+          }}
+          aria-describedby={isLoading ? 'loading-status' : undefined}
         >
           {isLoading ? (
-            <CircularProgress size={24} color="inherit" />
+            <>
+              <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
+              <span id="loading-status">
+                {type === AuthActivityType.SIGN_IN
+                  ? 'Signing In...'
+                  : 'Creating Account...'}
+              </span>
+            </>
           ) : type === AuthActivityType.SIGN_IN ? (
             'Sign In'
           ) : (
-            'Sign Up'
+            'Create Account'
           )}
         </Button>
       </Stack>
