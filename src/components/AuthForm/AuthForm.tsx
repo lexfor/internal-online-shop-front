@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   Box,
   Button,
@@ -8,9 +8,16 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { AuthActivityType, AuthFormProps } from '../../types/auth';
 import { AuthFormDto } from './AuthFormDto';
-import { useFormValidation } from '../../utils/useFormValidation';
+import {
+  signInSchema,
+  signUpSchema,
+  SignInFormData,
+  SignUpFormData,
+} from '../../utils/schemas';
 
 export default function AuthForm({
   type,
@@ -18,50 +25,61 @@ export default function AuthForm({
   isLoading,
   error,
 }: AuthFormProps) {
-  const emailInputRef = useRef<HTMLInputElement>(null);
+  // Get the appropriate schema and resolver
+  const schema =
+    type === AuthActivityType.SIGN_IN ? signInSchema : signUpSchema;
 
-  // Use the new form validation hook
   const {
-    formState,
-    setFieldValue,
-    setFieldTouched,
-    validateForm,
-    getFieldError,
-    getFieldHelperText,
-  } = useFormValidation({ type });
+    control,
+    handleSubmit: handleFormSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(schema),
+    mode: 'onBlur', // Validate on blur for better UX
+    defaultValues:
+      type === AuthActivityType.SIGN_IN
+        ? {
+            email: '',
+            password: '',
+          }
+        : {
+            email: '',
+            password: '',
+            confirmPassword: '',
+            username: '',
+            fullName: '',
+          },
+  });
 
-  // Handle field blur to mark as touched
-  const handleFieldBlur = (fieldName: keyof typeof formState) => {
-    setFieldTouched(fieldName, true);
-  };
-
-  useEffect(() => {
-    emailInputRef.current?.focus();
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate the entire form
-    if (!validateForm()) return;
-
+  const onSubmitForm = (data: SignInFormData | SignUpFormData) => {
     // Create the form data for submission
     const formDto = AuthFormDto.create({
-      email: formState.email.value,
-      password: formState.password.value,
-      confirmPassword: formState.confirmPassword.value,
-      username: formState.username.value,
-      fullName: formState.fullName.value,
+      email: data.email,
+      password: data.password,
+      confirmPassword: 'confirmPassword' in data ? data.confirmPassword : '',
+      username: 'username' in data ? data.username : '',
+      fullName: 'fullName' in data ? data.fullName : '',
       type,
     });
 
     onSubmit(formDto.toSubmitData());
   };
 
+  // Helper function to get error message
+  const getErrorMessage = (fieldName: string) => {
+    const error = errors[fieldName as keyof typeof errors];
+    return error?.message || '';
+  };
+
+  // Helper function to check if field has error
+  const hasError = (fieldName: string) => {
+    return !!errors[fieldName as keyof typeof errors];
+  };
+
   return (
     <Box
       component="form"
-      onSubmit={handleSubmit}
+      onSubmit={handleFormSubmit(onSubmitForm)}
       sx={{
         width: '100%',
         maxWidth: 400,
@@ -84,136 +102,155 @@ export default function AuthForm({
       )}
 
       <Stack spacing={2}>
-        <TextField
-          inputRef={emailInputRef}
-          label="Email Address"
-          variant="outlined"
-          type="email"
-          fullWidth
-          required
-          value={formState.email.value}
-          onChange={e => setFieldValue('email', e.target.value)}
-          onBlur={() => handleFieldBlur('email')}
-          error={getFieldError('email')}
-          helperText={getFieldHelperText('email')}
-          placeholder="Enter your email address"
-          autoComplete="email"
-          inputProps={{
-            'aria-describedby': 'email-helper-text',
-            'aria-invalid': getFieldError('email'),
-          }}
-          FormHelperTextProps={{
-            id: 'email-helper-text',
-            role: 'alert',
-          }}
+        <Controller
+          name="email"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="Email Address"
+              variant="outlined"
+              type="email"
+              fullWidth
+              required
+              error={hasError('email')}
+              helperText={getErrorMessage('email')}
+              placeholder="Enter your email address"
+              autoComplete="email"
+              inputProps={{
+                'aria-describedby': 'email-helper-text',
+                'aria-invalid': hasError('email'),
+              }}
+              FormHelperTextProps={{
+                id: 'email-helper-text',
+                role: 'alert',
+              }}
+            />
+          )}
         />
 
         <Box>
-          <TextField
-            label="Password"
-            variant="outlined"
-            type="password"
-            fullWidth
-            required
-            value={formState.password.value}
-            onChange={e => setFieldValue('password', e.target.value)}
-            onBlur={() => handleFieldBlur('password')}
-            error={getFieldError('password')}
-            helperText={getFieldHelperText('password')}
-            placeholder="Enter your password"
-            autoComplete={
-              type === AuthActivityType.SIGN_IN
-                ? 'current-password'
-                : 'new-password'
-            }
-            inputProps={{
-              'aria-describedby': 'password-helper-text password-strength',
-              'aria-invalid': getFieldError('password'),
-            }}
-            FormHelperTextProps={{
-              id: 'password-helper-text',
-              role: 'alert',
-            }}
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Password"
+                variant="outlined"
+                type="password"
+                fullWidth
+                required
+                error={hasError('password')}
+                helperText={getErrorMessage('password')}
+                placeholder="Enter your password"
+                autoComplete={
+                  type === AuthActivityType.SIGN_IN
+                    ? 'current-password'
+                    : 'new-password'
+                }
+                inputProps={{
+                  'aria-describedby': 'password-helper-text password-strength',
+                  'aria-invalid': hasError('password'),
+                }}
+                FormHelperTextProps={{
+                  id: 'password-helper-text',
+                  role: 'alert',
+                }}
+              />
+            )}
           />
         </Box>
 
         {type === AuthActivityType.SIGN_UP && (
           <>
-            <TextField
-              label="Confirm Password"
-              variant="outlined"
-              type="password"
-              fullWidth
-              required
-              value={formState.confirmPassword.value}
-              onChange={e => setFieldValue('confirmPassword', e.target.value)}
-              onBlur={() => handleFieldBlur('confirmPassword')}
-              error={getFieldError('confirmPassword')}
-              helperText={getFieldHelperText('confirmPassword')}
-              placeholder="Confirm your password"
-              autoComplete="new-password"
-              inputProps={{
-                'aria-describedby': 'confirm-password-helper-text',
-                'aria-invalid': getFieldError('confirmPassword'),
-              }}
-              FormHelperTextProps={{
-                id: 'confirm-password-helper-text',
-                role: 'alert',
-              }}
+            <Controller
+              name="confirmPassword"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Confirm Password"
+                  variant="outlined"
+                  type="password"
+                  fullWidth
+                  required
+                  error={hasError('confirmPassword')}
+                  helperText={getErrorMessage('confirmPassword')}
+                  placeholder="Confirm your password"
+                  autoComplete="new-password"
+                  inputProps={{
+                    'aria-describedby': 'confirm-password-helper-text',
+                    'aria-invalid': hasError('confirmPassword'),
+                  }}
+                  FormHelperTextProps={{
+                    id: 'confirm-password-helper-text',
+                    role: 'alert',
+                  }}
+                />
+              )}
             />
 
-            <TextField
-              label="Username"
-              variant="outlined"
-              type="text"
-              fullWidth
-              required
-              value={formState.username.value}
-              onChange={e => setFieldValue('username', e.target.value)}
-              onBlur={() => handleFieldBlur('username')}
-              error={getFieldError('username')}
-              helperText={
-                getFieldHelperText('username') ||
-                'Choose a unique username (3-30 characters, letters, numbers, _, -)'
-              }
-              placeholder="Choose a username"
-              autoComplete="username"
-              inputProps={{
-                'aria-describedby': 'username-helper-text',
-                'aria-invalid': getFieldError('username'),
-                maxLength: 30,
-              }}
-              FormHelperTextProps={{
-                id: 'username-helper-text',
-                role: getFieldError('username') ? 'alert' : 'status',
-              }}
+            <Controller
+              name="username"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Username"
+                  variant="outlined"
+                  type="text"
+                  fullWidth
+                  required
+                  error={hasError('username')}
+                  helperText={
+                    getErrorMessage('username') ||
+                    'Choose a unique username (3-30 characters, letters, numbers, _, -)'
+                  }
+                  placeholder="Choose a username"
+                  autoComplete="username"
+                  inputProps={{
+                    'aria-describedby': 'username-helper-text',
+                    'aria-invalid': hasError('username'),
+                    maxLength: 30,
+                  }}
+                  FormHelperTextProps={{
+                    id: 'username-helper-text',
+                    role: hasError('username') ? 'alert' : 'status',
+                  }}
+                />
+              )}
             />
 
-            <TextField
-              label="Full Name"
-              variant="outlined"
-              type="text"
-              fullWidth
-              required
-              value={formState.fullName.value}
-              onChange={e => setFieldValue('fullName', e.target.value)}
-              onBlur={() => handleFieldBlur('fullName')}
-              error={getFieldError('fullName')}
-              helperText={
-                getFieldHelperText('fullName') ||
-                'Enter your first and last name'
-              }
-              placeholder="Enter your full name"
-              autoComplete="name"
-              inputProps={{
-                'aria-describedby': 'full-name-helper-text',
-                'aria-invalid': getFieldError('fullName'),
-                maxLength: 100,
-              }}
-              FormHelperTextProps={{
-                id: 'full-name-helper-text',
-                role: getFieldError('fullName') ? 'alert' : 'status',
-              }}
+            <Controller
+              name="fullName"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Full Name"
+                  variant="outlined"
+                  type="text"
+                  fullWidth
+                  required
+                  error={hasError('fullName')}
+                  helperText={
+                    getErrorMessage('fullName') ||
+                    'Enter your first and last name'
+                  }
+                  placeholder="Enter your full name"
+                  autoComplete="name"
+                  inputProps={{
+                    'aria-describedby': 'full-name-helper-text',
+                    'aria-invalid': hasError('fullName'),
+                    maxLength: 100,
+                  }}
+                  FormHelperTextProps={{
+                    id: 'full-name-helper-text',
+                    role: hasError('fullName') ? 'alert' : 'status',
+                  }}
+                />
+              )}
             />
           </>
         )}

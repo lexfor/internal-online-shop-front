@@ -5,6 +5,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@hookform/resolvers": "^5.2.2",
     "@mui/material": "^7.1.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -17,11 +18,13 @@
     "ollama": "^0.5.17",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.65.0",
     "react-router-dom": "^7.6.1",
     "react-scripts": "^5.0.1",
     "react-toastify": "^11.0.5",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "zod": "^4.1.12"
   },
   "scripts": {
     "start": "react-scripts start",
